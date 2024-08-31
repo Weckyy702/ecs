@@ -6,6 +6,7 @@
 #include "Executor.hpp"
 #include "System.hpp"
 #include "Type.hpp"
+#include <queue>
 
 namespace ECS {
 
@@ -17,7 +18,8 @@ public:
   template <Component... Ts>
     requires(contains_v<Ts, Cs...> && ...)
   constexpr EntityID create(Ts &&...ts) noexcept {
-    size_t id = num_entities++;
+    size_t id = next_id();
+    num_entities++;
     (components_.template update_length<Cs>(num_entities), ...);
 
     (components_.insert(id, std::forward<Ts>(ts)), ...);
@@ -65,10 +67,17 @@ private:
     });
   }
 
+  constexpr size_t next_id() noexcept {
+    if (free_ids_.empty())
+      return num_entities;
+    size_t id = free_ids_.front();
+    free_ids_.pop();
+    return id;
   }
 
   ComponentStorage<Cs...> components_;
   std::vector<Type> types_;
+  std::queue<size_t> free_ids_;
   size_t num_entities;
 };
 
