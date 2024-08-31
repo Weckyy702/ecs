@@ -4,6 +4,8 @@
 #include <string_view>
 #include <thread>
 
+#include "Executor.hpp"
+#include "System.hpp"
 #include "ecs.hpp"
 
 struct Vec2 {
@@ -31,14 +33,26 @@ struct Index {
   size_t i;
 };
 
+struct GravitySystem : public ECS::BaseSystem<GravitySystem, Physics, Gravity> {
+  void run(Physics &p, Gravity const &) const { p.acceleration.y -= 9.81; }
+};
+
+struct Printer : public ECS::BaseSystem<Printer, Index, Position> {
+  void run(Index const &i, Position const &p) const {
+    const auto [x, y] = p.position;
+    fmt::println("Entity {}: ({}, {})", i.i, x, y);
+  }
+};
+
 int main() {
   using ECS = ECS::Ecs<Index, Position, Physics, Gravity>;
 
-  constexpr auto N = 250'000'000uz;
+  constexpr auto N = 100'000'000uz;
 
   ECS ecs{};
 
-  const auto time = [](std::invocable auto f, std::string_view label) {
+  [[maybe_unused]] const auto time = [](std::invocable auto f,
+                                        std::string_view label) {
     using namespace std::chrono;
     const auto start = high_resolution_clock::now();
     f();
@@ -64,29 +78,20 @@ int main() {
   }
 
   while (true) {
+
+    time([&] { ecs.run(GravitySystem{}); }, "Gravity update");
+
     time(
         [&] {
           ecs.run(
-              +[](Physics &p, Gravity const &) { p.acceleration.y -= 9.81; });
-        },
-        "Gravity update");
-
-    time(
-        [&] {
-          ecs.run(+[](Position &pos, Physics &phy) {
-            phy.velocity += phy.acceleration;
-            pos.position += phy.velocity;
-            phy.acceleration = Vec2{};
-          });
+              +[](Position &pos, Physics &phy) {
+                phy.velocity += phy.acceleration;
+                pos.position += phy.velocity;
+                phy.acceleration = Vec2{};
+              },
+              ::ECS::ParallelExecutor{});
         },
         "Physics update");
-
-    /*ecs.run(+[](const Position &pos, const Index &idx) {
-      if (idx.i > 10)
-        return;
-      const auto [x, y] = pos.position;
-      fmt::println("Entity {}: ({}, {})", idx.i, x, y);
-    });*/
 
     using std::chrono_literals::operator""ms;
     std::this_thread::sleep_for(500ms);
