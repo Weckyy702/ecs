@@ -1,6 +1,5 @@
 #pragma once
 
-#include <atomic>
 #include <concepts>
 #include <cstddef>
 
@@ -12,8 +11,7 @@ template <typename E>
 concept Executor = requires(E &e) { e.run(size_t{}, [](size_t) {}); };
 
 struct SerialExecutor {
-  template <std::invocable<size_t> F>
-  constexpr void run(size_t num_entities, F f) {
+  constexpr void run(size_t num_entities, std::invocable<size_t> auto f) {
     for (auto i = 0uz; i != num_entities; ++i) {
       f(i);
     }
@@ -27,20 +25,16 @@ public:
       n_threads = 1;
   }
 
-  template <std::invocable<size_t> F>
-  constexpr void run(size_t num_entities, F f) {
-    constexpr auto order = std::memory_order_relaxed;
-
+  constexpr void run(size_t num_entities, std::invocable<size_t> auto f) {
     std::vector<std::jthread> thread_pool;
-    thread_pool.reserve(n_threads);
+    thread_pool.resize(n_threads);
+    // Round up
+    const auto entities_per_thread = (num_entities - 1) / n_threads + 1;
 
-    std::atomic_size_t index{};
-    for (auto _ = 0uz; _ != thread_pool.capacity(); ++_) {
-      thread_pool.emplace_back([&] {
-        auto i = index.fetch_add(1, order);
-        while (i < num_entities) {
-          f(i);
-          i = index.fetch_add(1, order);
+    for (auto i = 0uz; i < num_entities; i += entities_per_thread) {
+      thread_pool.emplace_back([=, &f]() mutable {
+        for (auto _ = 0uz; _ != entities_per_thread; ++_) {
+          f(i++);
         }
       });
     }
