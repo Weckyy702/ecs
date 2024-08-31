@@ -39,27 +39,24 @@ public:
     types_[i] |= type;
   }
 
-  template <Component... Ts, System<Ts...> S>
-    requires(contains_v<std::remove_cv_t<Ts>, Cs...> && ...)
-  constexpr void run_sequenced(S s) {
-    constexpr auto type = TypeFor::template getType<Ts...>();
-
-    for (size_t i{}; i != num_entities; ++i) {
-      if ((types_[i] & type) == type)
-        s(components_.template get<std::remove_cv_t<Ts>>(i)...);
-    }
-  }
-
-  template <Component... Ts>
+  template <typename Derived, Component... Ts, Executor E = SerialExecutor>
     requires(contains_v<Ts, Cs...> && ...)
-  constexpr void run_sequenced(void (*const fn)(Ts &...)) {
-    this->template run_sequenced<Ts...>([=](Ts &...ts) { fn(ts...); });
+  constexpr void run(BaseSystem<Derived, Ts...> const &s, E e = {}) {
+    run_impl<Ts...>(s, e);
   }
 
-  template <Component... Ts, ConcurrentSystem<Ts...> S,
-            Executor E = SerialExecutor>
+  template <Component... Ts, Executor E = SerialExecutor>
+    requires(contains_v<Ts, Cs...> && ...)
+  constexpr void run(void (*fn)(Ts &...), E e = {}) {
+    run_impl<Ts...>([=](Ts &...ts) { fn(ts...); }, e);
+  }
+
+  void reserve(size_t n) { (components_.template update_length<Cs>(n), ...); }
+
+private:
+  template <Component... Ts, System<Ts...> S, Executor E>
     requires(contains_v<std::remove_cv_t<Ts>, Cs...> && ...)
-  constexpr void run(const S &s, E e = {}) {
+  constexpr void run_impl(const S &s, E e) {
     constexpr auto type = TypeFor::template getType<std::remove_cv_t<Ts>...>();
 
     e.run(num_entities, [&](size_t i) {
@@ -68,15 +65,8 @@ public:
     });
   }
 
-  template <Component... Ts, Executor E = SerialExecutor>
-    requires(contains_v<Ts, Cs...> && ...)
-  constexpr void run(void (*fn)(Ts &...), E e = {}) {
-    this->template run<Ts...>([=](Ts &...ts) { fn(ts...); }, e);
   }
 
-  void reserve(size_t n) { (components_.template update_length<Cs>(n), ...); }
-
-private:
   ComponentStorage<Cs...> components_;
   std::vector<Type> types_;
   size_t num_entities;
