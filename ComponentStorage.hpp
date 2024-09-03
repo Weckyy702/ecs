@@ -9,14 +9,11 @@
 namespace ECS {
 template <Component C> class ComponentStorageImpl {
 public:
-  struct Entry {
-    size_t id;
-    C component;
-  };
-
   constexpr void insert(size_t id, C &&c) {
     entities_.add(id, std::forward<C>(c));
   }
+
+  constexpr void remove(size_t i) { entities_.remove(i); }
 
   constexpr void update_length(size_t l) { entities_.reserve(l); }
 
@@ -33,6 +30,12 @@ public:
     requires contains_v<C, Cs...>
   constexpr void insert(size_t id, C &&c) {
     ComponentStorageImpl<C>::insert(id, std::forward<C>(c));
+  }
+
+  template <Component C>
+    requires contains_v<C, Cs...>
+  constexpr void remove(size_t i) {
+    ComponentStorageImpl<C>::remove(i);
   }
 
   template <Component C>
