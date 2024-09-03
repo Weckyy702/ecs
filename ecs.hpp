@@ -6,6 +6,7 @@
 #include "Executor.hpp"
 #include "System.hpp"
 #include "Type.hpp"
+#include <optional>
 #include <queue>
 
 namespace ECS {
@@ -59,6 +60,22 @@ public:
     types_[i] &= ~type;
     types_[i].set(valid_type_bit);
   }
+
+  template <Component C>
+    requires(contains_v<C, Cs...>)
+  constexpr std::optional<std::reference_wrapper<C>>
+  get_component(EntityID id) {
+    constexpr auto type = TypeFor ::template getType<C>();
+
+    assert(is_valid(id));
+    const auto i = id.value_;
+
+    if ((types_[i] & type) != type)
+      return std::nullopt;
+
+    return components_.template get<C>(i);
+  }
+
   constexpr void remove(EntityID id) noexcept {
     assert(is_valid(id));
 
