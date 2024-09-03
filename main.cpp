@@ -4,7 +4,7 @@
 #include <string_view>
 #include <thread>
 
-#include "Executor.hpp"
+#include "EntityID.hpp"
 #include "System.hpp"
 #include "ecs.hpp"
 
@@ -44,10 +44,8 @@ struct Printer : public ECS::BaseSystem<Printer, Index, Position> {
   }
 };
 
-int main() {
+void perf_test(size_t N = 250'000'000uz) {
   using ECS = ECS::Ecs<Index, Position, Physics, Gravity>;
-
-  constexpr auto N = 100'000'000uz;
 
   ECS ecs{};
 
@@ -83,13 +81,11 @@ int main() {
 
     time(
         [&] {
-          ecs.run(
-              +[](Position &pos, Physics &phy) {
-                phy.velocity += phy.acceleration;
-                pos.position += phy.velocity;
-                phy.acceleration = Vec2{};
-              },
-              ::ECS::ParallelExecutor{});
+          ecs.run(+[](Position &pos, Physics &phy) {
+            phy.velocity += phy.acceleration;
+            pos.position += phy.velocity;
+            phy.acceleration = Vec2{};
+          });
         },
         "Physics update");
 
@@ -97,3 +93,47 @@ int main() {
     std::this_thread::sleep_for(500ms);
   }
 }
+
+struct Counter : ECS::BaseSystem<Counter> {
+  static size_t counter;
+
+  void run() const noexcept { counter++; }
+};
+size_t Counter::counter = 0;
+
+void remove_test() {
+  using Ecs = ECS::Ecs<Index, Position>;
+
+  Ecs ecs{};
+
+  std::vector<ECS::EntityID> ids;
+
+  for (auto i = 0uz; i != 10; ++i) {
+    const auto id =
+        ecs.create(Index{i}, Position{{.x = static_cast<double>(i), .y = 0}});
+    ids.push_back(id);
+  }
+
+  ecs.run(Printer{});
+
+  fmt::println("------");
+
+  for (auto i = 0uz; i != ids.size() / 2; ++i) {
+    const auto id = ids[2 * i];
+    ecs.remove_components<Position>(id);
+  }
+
+  ecs.run(Printer{});
+
+  ecs.remove(ids[1]);
+
+  assert(!ecs.is_valid(ids[1]));
+  assert(ecs.create(Index{1}) == ids[1]);
+
+  ecs.run(+[](Index const &i) { fmt::println("Entity {}", i.i); });
+
+  ecs.run(Counter{});
+  fmt::println("{} entities - {} entities", Counter::counter, ecs.size());
+}
+
+int main() {}
