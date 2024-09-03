@@ -1,5 +1,5 @@
 ASAN = -fsanitize=address
-DBG = -ggdb
+DBG = -ggdb -Og
 
-CXXFLAGS += -std=c++23 -Wall -Wextra -Wconversion -Werror -O2 
-LDFLAGS += -lfmt 
+CXXFLAGS += -std=c++23 -Wall -Wextra -Wconversion -Werror $(DBG) $(ASAN)
+LDFLAGS += -lfmt -lraylib $(ASAN)
