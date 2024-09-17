@@ -1,26 +1,16 @@
-#include "EntityID.hpp"
-
-#include "System.hpp"
 #include "ecs.hpp"
 
 #include "raylib.h"
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <format>
-
-#include <arpa/inet.h>
+#include "socket.hpp"
 #include <iostream>
-#include <netinet/in.h>
-#include <sys/socket.h>
 
 struct Ball;
 struct Player;
 struct Physics;
 struct Score;
 struct PlayerController;
-class Server;
-class Client;
+struct Server;
+struct Client;
 
 using Ecs =
     ECS::Ecs<Ball, Player, Physics, Score, PlayerController, Server, Client>;
@@ -51,60 +41,12 @@ struct Score {
   uint8_t left, right;
 };
 
-auto check(std::integral auto status, std::string_view msg) {
-  if (status < 0) {
-    perror(msg.data());
-    exit(1);
-  }
-  return status;
-}
-
-int create_listener() {
-  auto const sock =
-      check(socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0), "socket");
-  sockaddr_in const my_addr{.sin_family = AF_INET,
-                            .sin_port = 0,
-                            .sin_addr = INADDR_ANY,
-                            .sin_zero = {}};
-  check(
-      bind(sock, reinterpret_cast<sockaddr const *>(&my_addr), sizeof(my_addr)),
-      "bind");
-  return sock;
-}
-
-class Server {
-public:
-  Server(ECS::EntityID player, ECS::EntityID ball)
-      : player_{player}, ball_{ball}, socket_{create_listener()} {}
-
-  Server(Server const &) = delete;
-  Server &operator=(Server const &) = delete;
-
-  void wait_for_connection() {
-    struct sockaddr_in addr;
-    socklen_t len = sizeof(addr);
-    check(getsockname(socket_, reinterpret_cast<sockaddr *>(&addr), &len),
-          "getsockname");
-
-    std::println(std::cout, "Listening on port {}...", addr.sin_port);
-    char buf[8];
-    check(recv(socket_, buf, sizeof(buf), 0), "recv");
-  }
-
-  ~Server() { close(socket_); }
-
-private:
-  ECS::EntityID player_, ball_;
-  int socket_;
+struct Server {
+  ECS::EntityID left, right, ball;
 };
 
-class Client {
-public:
-  Client(ECS::EntityID player, ECS::EntityID ball)
-      : player_{player}, ball_{ball} {}
-
-private:
-  ECS::EntityID player_, ball_;
+struct Client {
+  ECS::EntityID left, right, ball;
 };
 
 struct BallRenderer : ECS::BaseSystem<BallRenderer, Ball> {
@@ -146,8 +88,6 @@ struct BallUpdate : ECS::BaseSystem<BallUpdate, Ball, Physics> {
       vx = 1;
     if (collides(ball, right))
       vx = -1;
-
-    TraceLog(LOG_DEBUG, "Ball Speed: %f", p.speed);
 
     x += vx * p.speed;
     y += vy * p.speed;
@@ -206,12 +146,63 @@ struct ScoreUpdate : ECS::BaseSystem<ScoreUpdate, Score> {
   float width;
 };
 
+struct [[gnu::packed]] ServerPacket {
+  Ball ball;
+  Player player;
+};
+
+struct [[gnu::packed]] ClientPacket {
+  Player player;
+};
+
 struct ServerUpdate : ECS::BaseSystem<ServerUpdate, Server> {
-  void run(Server &s) const { IGNORE s; }
+  void run(Server const &s) const {
+    auto ball = ecs.get_component<Ball>(s.ball).value().get();
+    ball.position.x = width - ball.position.x;
+    auto player = ecs.get_component<Player>(s.left).value().get();
+    player.position.x = width - player.position.x;
+
+    socket.send(ServerPacket{ball, player});
+    auto const response = socket.receive<ClientPacket>();
+
+    ecs.get_component<Player>(s.right).value().get() = response.player;
+  }
+
+  void wait_for_connection() { socket.wait_for_connection(); }
+
+  Socket socket{};
+  Ecs &ecs;
+  float width;
 };
 
 struct ClientUpdate : ECS::BaseSystem<ClientUpdate, Client> {
-  void run(Client &client) const { IGNORE client; }
+  void run(Client &c) const {
+    auto player = ecs.get_component<Player>(c.left).value().get();
+    player.position.x = width - player.position.x;
+
+    socket.send(ClientPacket{player});
+
+    auto const response = socket.receive<ServerPacket>();
+
+    ecs.get_component<Ball>(c.ball).value().get() = response.ball;
+    ecs.get_component<Player>(c.right).value().get() = response.player;
+  }
+
+  void connect() {
+    std::string addr_string;
+    std::cout << "Server addresss: " << std::flush;
+    std::cin >> addr_string;
+
+    in_port_t port;
+    std::cout << "Server port: " << std::flush;
+    std::cin >> port;
+
+    socket.connect(addr_string, port);
+  }
+
+  Socket socket{};
+  Ecs &ecs;
+  float width;
 };
 
 int main() {
@@ -228,14 +219,17 @@ int main() {
       .y = height / 2.,
   }});
 
-  if (true) {
-    ecs.add_components(ball, Physics{});
-    auto const id = ecs.create(Server{left, ball});
-    auto &server = ecs.get_component<Server>(id).value().get();
+  std::println(std::cout, "Is this the server? y/N");
+  char answer{};
+  std::cin >> answer;
 
-    server.wait_for_connection();
+  bool const is_server = std::tolower(answer) == 'y';
+
+  if (is_server) {
+    ecs.add_components(ball, Physics{});
+    ecs.create(Server{left, right, ball});
   } else {
-    ecs.create(Client(right, ball));
+    ecs.create(Client{left, right, ball});
   }
 
   ecs.create(Score{});
@@ -244,6 +238,15 @@ int main() {
   SetTargetFPS(24);
 
   SetTraceLogLevel(LOG_DEBUG);
+
+  ServerUpdate server_update{.ecs = ecs, .width = width};
+  ClientUpdate client_update{.ecs = ecs, .width = width};
+
+  if (is_server) {
+    server_update.wait_for_connection();
+  } else {
+    client_update.connect();
+  }
 
   while (!WindowShouldClose()) {
     BeginDrawing();
@@ -262,8 +265,8 @@ int main() {
                        .ecs = ecs,
                        .left = left,
                        .right = right});
-    ecs.run(ServerUpdate{});
-    ecs.run(ClientUpdate{});
+    ecs.run(server_update);
+    ecs.run(client_update);
     ecs.run(ScoreUpdate{.ecs = ecs, .ball = ball, .width = width});
   }
 
