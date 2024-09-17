@@ -2,3 +2,5 @@
 main
 pong
 compile_commands.json
+*.o
+*.d
