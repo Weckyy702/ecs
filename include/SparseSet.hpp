@@ -22,16 +22,14 @@ public:
       sparse.resize(new_size, empty_cell);
   }
 
-  constexpr void add(size_t i, C &&c) {
+  constexpr void add(size_t i, C c) {
     assert(i < sparse.size());
 
     if (sparse[i] < dense.size()) {
-      Entry e{sparse[i], std::forward<C>(c)};
-      (void)e;
-      // std::swap(dense[sparse[i]], e);
+      dense[sparse[i]] = Entry{sparse[i], std::move(c)};
     } else {
       sparse[i] = dense.size();
-      dense.emplace_back(dense.size(), std::forward<C>(c));
+      dense.emplace_back(dense.size(), std::move(c));
     }
   }
 

@@ -9,9 +9,7 @@
 namespace ECS {
 template <Component C> class ComponentStorageImpl {
 public:
-  constexpr void insert(size_t id, C &&c) {
-    entities_.add(id, std::forward<C>(c));
-  }
+  constexpr void insert(size_t id, C c) { entities_.add(id, std::move(c)); }
 
   constexpr void remove(size_t i) { entities_.remove(i); }
 
