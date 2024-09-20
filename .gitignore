@@ -1,6 +1,7 @@
 /.cache/
 main
 pong
+events
 compile_commands.json
 *.o
 *.d
