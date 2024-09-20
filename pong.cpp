@@ -121,28 +121,26 @@ struct PlayerUpdate : ECS::BaseSystem<PlayerUpdate, Player, PlayerController> {
   float height;
 };
 
-struct ScoreUpdate : ECS::BaseSystem<ScoreUpdate, Score> {
-  void run(Score &s) const {
-    auto &ball = ecs.get_component<Ball>(this->ball).value().get();
+struct ScoreUpdate : ECS::BaseSystem<ScoreUpdate, Score, Ball> {
+  void run(Score &s, Ball &ball) const {
     auto &[x, _] = ball.position;
 
     if (x - ball.radius <= 0) {
       TraceLog(LOG_DEBUG, "Right score");
       x = width / 2;
-      s.left += 1;
+      s.right += 1;
       return;
     }
 
     if (x + ball.radius >= width) {
       TraceLog(LOG_DEBUG, "Left score");
       x = width / 2;
-      s.right += 1;
+      s.left += 1;
       return;
     }
   }
 
   Ecs &ecs;
-  ECS::EntityID ball;
   float width;
 };
 
@@ -215,7 +213,7 @@ int main() {
 
   Ecs ecs{};
 
-  const auto ball = ecs.create(Ball{Vector2{width / 2., height / 2.}});
+  const auto ball = ecs.create(Ball{Vector2{width / 2., height / 2.}}, Score{});
   const auto left =
       ecs.create(Player{{.x = 10, .y = height / 2.}},
                  PlayerController{.up = KEY_UP, .down = KEY_DOWN});
@@ -236,8 +234,6 @@ int main() {
   } else {
     ecs.create(Client{left, right, ball});
   }
-
-  ecs.create(Score{});
 
   InitWindow(width, height, "ECS Pong");
   SetTargetFPS(24);
@@ -272,7 +268,7 @@ int main() {
                        .right = right});
     ecs.run(server_update);
     ecs.run(client_update);
-    ecs.run(ScoreUpdate{.ecs = ecs, .ball = ball, .width = width});
+    ecs.run(ScoreUpdate{.ecs = ecs, .width = width});
   }
 
   CloseWindow();
