@@ -6,14 +6,14 @@ LDLIBS += -lfmt -lraylib
 
 .PHONY: clean cleanall
 
-main:
+pong: pong.o src/socket.o
 
-pong: pong.o socket.o
+events: events.o src/EventManager.o src/EventClient.o
 
 clean:
-	$(RM) main pong *.o
+	$(RM) main events pong *.o src/*.o
 
 cleanall: clean
-	$(RM) *.d
+	$(RM) *.d src/*.d
 
 -include $(wildcard *.d)
