@@ -165,7 +165,10 @@ struct ServerUpdate : ECS::BaseSystem<ServerUpdate, Server> {
     socket.send(ServerPacket{ball, player});
     auto const response = socket.receive<ClientPacket>();
 
-    ecs.get_component<Player>(s.right).value().get() = response.player;
+    if (!response.has_value())
+      return;
+
+    ecs.get_component<Player>(s.right).value().get() = response->player;
   }
 
   void wait_for_connection() { socket.wait_for_connection(); }
@@ -183,9 +186,11 @@ struct ClientUpdate : ECS::BaseSystem<ClientUpdate, Client> {
     socket.send(ClientPacket{player});
 
     auto const response = socket.receive<ServerPacket>();
+    if (!response)
+      return;
 
-    ecs.get_component<Ball>(c.ball).value().get() = response.ball;
-    ecs.get_component<Player>(c.right).value().get() = response.player;
+    ecs.get_component<Ball>(c.ball).value().get() = response->ball;
+    ecs.get_component<Player>(c.right).value().get() = response->player;
   }
 
   void connect() {

@@ -1,7 +1,9 @@
 #include "socket.hpp"
 
 #include <arpa/inet.h>
+#include <cerrno>
 #include <iostream>
+#include <sys/socket.h>
 #include <unistd.h>
 
 Socket::Socket() : socket_{create_listener()} {}
@@ -18,9 +20,16 @@ void Socket::wait_for_connection() {
 
   len = sizeof(peer_address_);
   std::byte buf[8];
-  check(recvfrom(socket_, buf, sizeof(buf), 0,
-                 reinterpret_cast<sockaddr *>(&peer_address_), &len),
-        "recvfrom");
+  for (;;) {
+    auto status = recvfrom(socket_, buf, sizeof(buf), 0,
+                           reinterpret_cast<sockaddr *>(&peer_address_), &len);
+    if (status >= 0)
+      break;
+    if (errno == EAGAIN)
+      continue;
+    perror("wait_for_connection/recvfrom");
+    std::exit(1);
+  }
 }
 
 void Socket::connect(std::string const &addr_string, in_port_t port) {
@@ -42,7 +51,8 @@ void Socket::connect(std::string const &addr_string, in_port_t port) {
 }
 
 int Socket::create_listener() {
-  auto const sock = check(socket(AF_INET, SOCK_DGRAM, 0), "socket");
+  auto const sock =
+      check(socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0), "socket");
   sockaddr_in const my_addr{.sin_family = AF_INET,
                             .sin_port = 0,
                             .sin_addr{INADDR_ANY},

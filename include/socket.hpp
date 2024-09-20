@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cerrno>
 #include <netinet/in.h>
+#include <optional>
 #include <string>
 #include <sys/socket.h>
 
@@ -26,11 +28,17 @@ public:
                  "sendto") == sizeof(Packet));
   }
 
-  template <typename Packet> Packet receive() const {
+  template <typename Packet> std::optional<Packet> receive() const {
     using Data = std::array<std::byte, sizeof(Packet)>;
     Data data;
 
-    auto const sz = check(recv(socket_, data.data(), data.size(), 0), "recv");
+    auto const sz = recv(socket_, data.data(), data.size(), 0);
+    if (sz < 0) {
+      if (errno == EAGAIN)
+        return std::nullopt;
+      perror(__PRETTY_FUNCTION__);
+      exit(1);
+    }
     assert(sz == sizeof(Packet));
     return std::bit_cast<Packet>(data);
   }
