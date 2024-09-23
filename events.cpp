@@ -1,4 +1,3 @@
-
 #include "EventClient.hpp"
 #include "EventManager.hpp"
 #include <iostream>
@@ -24,7 +23,7 @@ int main() {
       [](YourEvent const &e) { std::println(std::cout, "YourEvent {}", e.i); });
 
   sender->emit(MyEvent{12});
-  sender->emit(YourEvent{14});
+  manager->emit(YourEvent{42});
 
   manager->notify_clients();
 }
