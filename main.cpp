@@ -1,6 +1,7 @@
 #include <chrono>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <random>
 #include <string_view>
 #include <thread>
 
@@ -63,14 +64,17 @@ void perf_test(size_t N = 250'000'000uz) {
 
   ecs.reserve(N);
 
+  std::mt19937 rng{};
+  std::bernoulli_distribution dist{0.25};
+
   for (auto i = 0uz; i != N; ++i) {
     const auto id = ecs.create(Index{i});
 
-    if (i % 3 == 0) {
+    if (dist(rng)) {
       ecs.add_components(id, Position{});
     }
 
-    if (i % 6 == 0) {
+    if (dist(rng)) {
       ecs.add_components(id, Physics{}, Gravity{});
     }
   }
