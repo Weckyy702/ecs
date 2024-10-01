@@ -1,7 +1,7 @@
-
 #include "EventClient.hpp"
 #include "EventManager.hpp"
 #include <iostream>
+#include <string>
 
 struct MyEvent {
   int i;
@@ -9,6 +9,7 @@ struct MyEvent {
 
 struct YourEvent {
   int i;
+  std::string s;
 };
 
 int main() {
@@ -20,11 +21,12 @@ int main() {
 
   my_receiver->subscribe<MyEvent>(
       [](MyEvent const &e) { std::println(std::cout, "MyEvent {}", e.i); });
-  your_receiver->subscribe<YourEvent>(
-      [](YourEvent const &e) { std::println(std::cout, "YourEvent {}", e.i); });
+  your_receiver->subscribe<YourEvent>([](YourEvent const &e) {
+    std::println(std::cout, "YourEvent {} {}", e.i, e.s);
+  });
 
   sender->emit(MyEvent{12});
-  sender->emit(YourEvent{14});
+  sender->emit(YourEvent{14, "ayo"});
 
   manager->notify_clients();
 }
