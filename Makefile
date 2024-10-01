@@ -16,4 +16,4 @@ clean:
 cleanall: clean
 	$(RM) *.d src/*.d
 
--include $(wildcard *.d)
+-include $(shell find -type f -name '*.d')
