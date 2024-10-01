@@ -25,10 +25,14 @@ public:
 
   std::shared_ptr<EventClient> make_client() noexcept;
 
-  void emit(Event) noexcept;
+  template <typename T> void emit(T &&t) noexcept {
+    _emit(Event{std::forward<T>(t)});
+  }
+
   void notify_clients() noexcept;
 
 private:
+  void _emit(Event) noexcept;
   std::vector<std::weak_ptr<EventClient>> clients_;
   std::queue<Event> events_;
 };

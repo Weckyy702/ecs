@@ -105,9 +105,7 @@ public:
     const auto i = id.value_;
     if (i >= types_.size())
       return false;
-    if (!types_[i].test(valid_type_bit))
-      return false;
-    return true;
+    return types_[i].test(valid_type_bit);
   }
 
   constexpr size_t size() { return types_.size() - free_ids_.size(); }

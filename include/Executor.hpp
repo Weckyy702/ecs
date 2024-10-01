@@ -28,8 +28,9 @@ public:
   constexpr void run(size_t num_entities, std::invocable<size_t> auto f) {
     std::vector<std::jthread> thread_pool;
     thread_pool.resize(n_threads);
+
     // Round up
-    const auto entities_per_thread = (num_entities - 1) / n_threads + 1;
+    auto const entities_per_thread = (num_entities - 1) / n_threads + 1;
 
     for (auto i = 0uz; i < num_entities; i += entities_per_thread) {
       thread_pool.emplace_back([=, &f]() mutable {

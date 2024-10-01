@@ -27,7 +27,7 @@ public:
   }
 
   template <typename E> void emit(E &&e) noexcept {
-    manager_->emit(Event{std::forward<E>(e)});
+    manager_->emit(std::forward<E>(e));
   }
 
 private:
