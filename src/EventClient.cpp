@@ -1,4 +1,4 @@
-#include "EventClient.hpp"
+#include "ecs/EventClient.hpp"
 
 namespace ECS::Event {
 

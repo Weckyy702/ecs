@@ -1,5 +1,5 @@
-#include "EventManager.hpp"
-#include "EventClient.hpp"
+#include "ecs/EventManager.hpp"
+#include "ecs/EventClient.hpp"
 
 namespace ECS::Event {
 std::shared_ptr<EventClient> EventManager::make_client() noexcept {

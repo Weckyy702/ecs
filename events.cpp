@@ -1,5 +1,5 @@
-#include "EventClient.hpp"
-#include "EventManager.hpp"
+#include "ecs/EventClient.hpp"
+#include "ecs/EventManager.hpp"
 #include <iostream>
 #include <string>
 

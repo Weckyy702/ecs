@@ -5,9 +5,9 @@
 #include <string_view>
 #include <thread>
 
-#include "EntityID.hpp"
-#include "System.hpp"
-#include "ecs.hpp"
+#include "ecs/EntityID.hpp"
+#include "ecs/System.hpp"
+#include "ecs/ecs.hpp"
 
 struct Vec2 {
   constexpr Vec2 &operator+=(const Vec2 &other) {

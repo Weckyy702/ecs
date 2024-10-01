@@ -1,7 +1,7 @@
-#include "ecs.hpp"
+#include "ecs/ecs.hpp"
 
+#include "pong/socket.hpp"
 #include "raylib.h"
-#include "socket.hpp"
 #include <iostream>
 
 struct Ball;
