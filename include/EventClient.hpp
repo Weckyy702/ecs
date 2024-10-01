@@ -5,7 +5,7 @@
 
 #include "EventManager.hpp"
 
-namespace ecs::event {
+namespace ECS::Event {
 
 class EventClient {
   friend class EventManager;
@@ -37,4 +37,4 @@ private:
   std::vector<Subscription> subscriptions_;
 };
 
-} // namespace ecs::event
+} // namespace ECS::Event

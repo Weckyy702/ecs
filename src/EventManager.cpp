@@ -1,7 +1,7 @@
 #include "EventManager.hpp"
 #include "EventClient.hpp"
 
-namespace ecs::event {
+namespace ECS::Event {
 std::shared_ptr<EventClient> EventManager::make_client() noexcept {
   auto ptr =
       std::make_shared<EventClient>(shared_from_this(), EventClient::Badge{});
@@ -37,4 +37,4 @@ void EventManager::notify_clients() noexcept {
   }
 }
 
-} // namespace ecs::event
+} // namespace ECS::Event

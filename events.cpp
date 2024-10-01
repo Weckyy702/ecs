@@ -12,7 +12,7 @@ struct YourEvent {
 };
 
 int main() {
-  auto manager = ecs::event::EventManager::make();
+  auto manager = ECS::Event::EventManager::make();
 
   auto sender = manager->make_client();
   auto my_receiver = manager->make_client();

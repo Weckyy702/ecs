@@ -1,6 +1,6 @@
 #include "EventClient.hpp"
 
-namespace ecs::event {
+namespace ECS::Event {
 
 void EventClient::_notify(Event const &e) {
   for (auto const &sub : subscriptions_) {
@@ -8,4 +8,4 @@ void EventClient::_notify(Event const &e) {
   }
 }
 
-} // namespace ecs::event
+} // namespace ECS::Event

@@ -6,7 +6,7 @@
 
 #include "Event.hpp"
 
-namespace ecs::event {
+namespace ECS::Event {
 class EventClient;
 
 class EventManager : public std::enable_shared_from_this<EventManager> {
@@ -32,4 +32,4 @@ private:
   std::vector<std::weak_ptr<EventClient>> clients_;
   std::queue<Event> events_;
 };
-} // namespace ecs::event
+} // namespace ECS::Event
