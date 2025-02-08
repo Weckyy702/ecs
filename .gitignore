@@ -1,7 +1,3 @@
-/.cache/
-main
-pong
-events
+**/.cache/
+**/bin/
 compile_commands.json
-*.o
-*.d
