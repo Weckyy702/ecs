@@ -1,0 +1,33 @@
+Checks: " *,
+          -cppcoreguidelines-avoid-magic-numbers,
+          -misc-no-recursion,
+          -modernize-use-trailing-return-type,
+          -llvmlibc-*,
+          -fuchsia-default-arguments-calls,
+          -altera-id-dependent-backward-branch,
+          -altera-unroll-loops,
+          -google-readability-todo,
+          -llvm-header-guard,
+          -altera-struct-pack-align,
+          -fuchsia-overloaded-operator,
+          -fuchsia-default-arguments-declarations,
+          -llvm-include-order,
+          -abseil-string-find-str-contains,
+          -fuchsia-trailing-return,
+          -readability-static-accessed-through-instance,
+          -readability-magic-numbers,
+"
+
+CheckOptions:
+  - key:             misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value:           '1'
+  - key:            readability-identifier-length.MinimumVariableNameLength
+    value:          2
+  - key:            readability-identifier-length.MinimumParameterNameLength
+    value:          2
+  - key:            readability-identifier-length.IgnoredParameterNames
+    value:          'c|n|f'
+  - key:            readability-identifier-length.IgnoredLoopCounterNames
+    value:          'c|i|j|k|n'
+  - key:            readability-braces-around-statements.ShortStatementLines
+    value:          1
