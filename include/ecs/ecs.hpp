@@ -28,10 +28,11 @@ public:
 
     (components_.insert(id, std::forward<Ts>(ts)), ...);
 
-    if (id < types_.size())
+    if (id < types_.size()) {
       types_[id] = type;
-    else
+    } else {
       types_.push_back(type);
+    }
 
     return EntityID{id};
   }
@@ -42,10 +43,10 @@ public:
     constexpr auto type = TypeFor::template getType<Ts...>();
 
     assert(is_valid(id));
-    const auto i = id.value_;
+    const auto idx = id.value_;
 
-    (components_.insert(i, std::forward<Ts>(ts)), ...);
-    types_[i] |= type;
+    (components_.insert(idx, std::forward<Ts>(ts)), ...);
+    types_[idx] |= type;
   }
 
   template <Component... Ts>

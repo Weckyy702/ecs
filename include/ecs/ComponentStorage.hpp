@@ -4,12 +4,17 @@
 #include "SparseSet.hpp"
 
 #include <cstddef>
+#include <type_traits>
 #include <utility>
 
 namespace ECS {
 template <Component C> class ComponentStorageImpl {
 public:
-  constexpr void insert(size_t id, C c) { entities_.add(id, std::move(c)); }
+  template <typename U>
+    requires(std::is_constructible_v<C, U>)
+  constexpr void insert(size_t id, U &&u) {
+    entities_.add(id, std::forward<U>(u));
+  }
 
   constexpr void remove(size_t i) { entities_.remove(i); }
 
@@ -24,11 +29,7 @@ private:
 template <Component... Cs>
 class ComponentStorage : ComponentStorageImpl<Cs>... {
 public:
-  template <Component C>
-    requires contains_v<C, Cs...>
-  constexpr void insert(size_t id, C &&c) {
-    ComponentStorageImpl<C>::insert(id, std::forward<C>(c));
-  }
+  using ComponentStorageImpl<Cs>::insert...;
 
   template <Component C>
     requires contains_v<C, Cs...>

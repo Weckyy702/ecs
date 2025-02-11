@@ -11,27 +11,17 @@ std::shared_ptr<EventClient> EventManager::make_client() noexcept {
   return ptr;
 }
 
-void EventManager::_emit(Event e) noexcept { events_.emplace(std::move(e)); }
-
-static void
-remove_dead_clients(std::vector<std::weak_ptr<EventClient>> &clients) {
-  for (auto it = clients.begin(); it != clients.end();) {
-    auto const client = it->lock();
-    if (!client) {
-      it = clients.erase(it);
-      continue;
-    }
-    it++;
-  }
-}
-
 void EventManager::notify_clients() noexcept {
-  remove_dead_clients(clients_);
-
   while (!events_.empty()) {
-    Event const &e = events_.front();
-    for (auto const &client : clients_) {
-      client.lock()->_notify(e);
+    Event const &event = events_.front();
+    for (auto it = clients_.begin(); it != clients_.end();) {
+      if (auto const client = it->lock(); client) {
+        client->_notify(event);
+        ++it;
+      } else {
+        // Remove dead client
+        it = clients_.erase(it);
+      }
     }
     events_.pop();
   }

@@ -21,7 +21,7 @@ public:
   template <typename T, std::invocable<T const &> F> void subscribe(F &&f) {
     subscriptions_.emplace_back([f](Event const &e) {
       if (e.is<T>()) {
-        f(e.as<T>());
+        std::invoke(f, e.as<T>());
       }
     });
   }
@@ -31,7 +31,7 @@ public:
   }
 
 private:
-  void _notify(Event const &);
+  void _notify(Event const &) const;
 
   std::shared_ptr<EventManager> manager_;
   std::vector<Subscription> subscriptions_;

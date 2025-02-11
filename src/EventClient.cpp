@@ -2,9 +2,9 @@
 
 namespace ECS::Event {
 
-void EventClient::_notify(Event const &e) {
+void EventClient::_notify(Event const &event) const {
   for (auto const &sub : subscriptions_) {
-    sub(e);
+    sub(event);
   }
 }
 

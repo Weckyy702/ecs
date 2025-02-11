@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <queue>
+#include <utility>
 #include <vector>
 
 #include "Event.hpp"
@@ -15,7 +16,7 @@ class EventManager : public std::enable_shared_from_this<EventManager> {
   friend class EventClient;
 
 public:
-  EventManager(Badge) {}
+  explicit EventManager(Badge) {}
 
   static std::shared_ptr<EventManager> make() noexcept {
     return std::make_shared<EventManager>(Badge{});
@@ -26,13 +27,12 @@ public:
   std::shared_ptr<EventClient> make_client() noexcept;
 
   template <typename T> void emit(T &&t) noexcept {
-    _emit(Event{std::forward<T>(t)});
+    events_.emplace(std::forward<T>(t));
   }
 
   void notify_clients() noexcept;
 
 private:
-  void _emit(Event) noexcept;
   std::vector<std::weak_ptr<EventClient>> clients_;
   std::queue<Event> events_;
 };
