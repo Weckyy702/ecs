@@ -1,8 +1,12 @@
+#include "ecs/EntityID.hpp"
+#include "ecs/System.hpp"
 #include "ecs/ecs.hpp"
+#include "socket.hpp"
 
-#include "pong/socket.hpp"
 #include "raylib.h"
+#include <functional>
 #include <iostream>
+#include <memory>
 
 struct Ball;
 struct Player;
@@ -14,8 +18,6 @@ struct Client;
 
 using Ecs =
     ECS::Ecs<Ball, Player, Physics, Score, PlayerController, Server, Client>;
-
-#define IGNORE (void)
 
 struct Ball {
   constexpr static float radius = 10;
@@ -50,26 +52,26 @@ struct Client {
 };
 
 struct BallRenderer : ECS::BaseSystem<BallRenderer, Ball> {
-  void run(Ball const &ball) const {
+  static void run(Ball const &ball) {
     DrawCircleV(ball.position, ball.radius, RED);
   }
 };
 
 struct PlayerRenderer : ECS::BaseSystem<PlayerRenderer, Player> {
-  void run(Player const &player) const {
+  static void run(Player const &player) {
     DrawRectangleV(player.position, player.size, BLUE);
   }
 };
 
 struct ScoreRenderer : ECS::BaseSystem<ScoreRenderer, Score> {
-  void run(Score const &s) const {
+  void run(Score const &score) const {
     {
-      const auto t = std::format("{}", s.left);
-      DrawText(t.c_str(), width / 4, 20, 32, RAYWHITE);
+      const auto txt = std::format("{}", score.left);
+      DrawText(txt.c_str(), width / 4, 20, 32, RAYWHITE);
     }
     {
-      const auto t = std::format("{}", s.right);
-      DrawText(t.c_str(), 3 * width / 4, 20, 32, RAYWHITE);
+      const auto txt = std::format("{}", score.right);
+      DrawText(txt.c_str(), 3 * width / 4, 20, 32, RAYWHITE);
     }
   }
 
@@ -77,33 +79,37 @@ struct ScoreRenderer : ECS::BaseSystem<ScoreRenderer, Score> {
 };
 
 struct BallUpdate : ECS::BaseSystem<BallUpdate, Ball, Physics> {
-  void run(Ball &ball, Physics &p) const {
+  void run(Ball &ball, Physics &physics) const {
     auto &[x, y] = ball.position;
-    auto &[vx, vy] = p.direction;
+    auto &[vx, vy] = physics.direction;
 
-    if (y >= height - ball.radius || y <= ball.radius)
+    if (y >= height - ball.radius || y <= ball.radius) {
       vy *= -1;
+    }
 
-    if (collides(ball, left))
+    if (collides(ball, left)) {
       vx = 1;
-    if (collides(ball, right))
+    }
+    if (collides(ball, right)) {
       vx = -1;
+    }
 
-    x += vx * p.speed;
-    y += vy * p.speed;
+    x += vx * physics.speed;
+    y += vy * physics.speed;
 
-    p.speed *= 1 + 5e-4f;
+    physics.speed *= 1 + 5e-4F;
   }
 
-  bool collides(Ball const &ball, ECS::EntityID player) const {
-    const auto [x, y] = ecs.get_component<Player>(player)->get().position;
+  [[nodiscard]] bool collides(Ball const &ball, ECS::EntityID player) const {
+    const auto [x, y] =
+        ecs->get_component<Player>(player).value().get().position;
     const auto [w, h] = Player::size;
     return CheckCollisionCircleRec(ball.position, ball.radius,
                                    Rectangle{x, y, w, h});
   }
 
-  float width, height;
-  Ecs &ecs;
+  float width{}, height{};
+  std::shared_ptr<Ecs> ecs;
   ECS::EntityID left, right;
 };
 
@@ -111,10 +117,10 @@ struct PlayerUpdate : ECS::BaseSystem<PlayerUpdate, Player, PlayerController> {
   void run(Player &player, PlayerController const &pc) const {
     auto &[_, y] = player.position;
     if (IsKeyDown(pc.up)) {
-      y = std::max(0.f, y - 5.f);
+      y = std::max(0.F, y - 5.F);
     }
     if (IsKeyDown(pc.down)) {
-      y = std::min(height - Player::size.y, y + 5.f);
+      y = std::min(height - Player::size.y, y + 5.F);
     }
   }
 
@@ -122,26 +128,25 @@ struct PlayerUpdate : ECS::BaseSystem<PlayerUpdate, Player, PlayerController> {
 };
 
 struct ScoreUpdate : ECS::BaseSystem<ScoreUpdate, Score, Ball> {
-  void run(Score &s, Ball &ball) const {
+  void run(Score &score, Ball &ball) const {
     auto &[x, _] = ball.position;
 
     if (x - ball.radius <= 0) {
       TraceLog(LOG_DEBUG, "Right score");
       x = width / 2;
-      s.right += 1;
+      score.right += 1;
       return;
     }
 
     if (x + ball.radius >= width) {
       TraceLog(LOG_DEBUG, "Left score");
       x = width / 2;
-      s.left += 1;
+      score.left += 1;
       return;
     }
   }
 
-  Ecs &ecs;
-  float width;
+  float width{};
 };
 
 struct [[gnu::packed]] ServerPacket {
@@ -154,41 +159,43 @@ struct [[gnu::packed]] ClientPacket {
 };
 
 struct ServerUpdate : ECS::BaseSystem<ServerUpdate, Server> {
-  void run(Server const &s) const {
-    auto ball = ecs.get_component<Ball>(s.ball).value().get();
+  void run(Server const &server) const {
+    auto ball = ecs->get_component<Ball>(server.ball).value().get();
     ball.position.x = width - ball.position.x;
-    auto player = ecs.get_component<Player>(s.left).value().get();
+    auto player = ecs->get_component<Player>(server.left).value().get();
     player.position.x = width - player.position.x;
 
-    socket.send(ServerPacket{ball, player});
+    socket.send(ServerPacket{.ball = ball, .player = player});
     auto const response = socket.receive<ClientPacket>();
 
-    if (!response.has_value())
+    if (!response.has_value()) {
       return;
+    }
 
-    ecs.get_component<Player>(s.right).value().get() = response->player;
+    ecs->get_component<Player>(server.right).value().get() = response->player;
   }
 
   void wait_for_connection() { socket.wait_for_connection(); }
 
-  Socket socket{};
-  Ecs &ecs;
+  Socket socket;
+  std::shared_ptr<Ecs> ecs;
   float width;
 };
 
 struct ClientUpdate : ECS::BaseSystem<ClientUpdate, Client> {
   void run(Client &c) const {
-    auto player = ecs.get_component<Player>(c.left).value().get();
+    auto player = ecs->get_component<Player>(c.left).value().get();
     player.position.x = width - player.position.x;
 
     socket.send(ClientPacket{player});
 
     auto const response = socket.receive<ServerPacket>();
-    if (!response)
+    if (!response) {
       return;
+    }
 
-    ecs.get_component<Ball>(c.ball).value().get() = response->ball;
-    ecs.get_component<Player>(c.right).value().get() = response->player;
+    ecs->get_component<Ball>(c.ball).value().get() = response->ball;
+    ecs->get_component<Player>(c.right).value().get() = response->player;
   }
 
   void connect() {
@@ -196,28 +203,32 @@ struct ClientUpdate : ECS::BaseSystem<ClientUpdate, Client> {
     std::cout << "Server addresss: " << std::flush;
     std::cin >> addr_string;
 
-    in_port_t port;
+    in_port_t port{};
     std::cout << "Server port: " << std::flush;
     std::cin >> port;
 
     socket.connect(addr_string, port);
   }
 
-  Socket socket{};
-  Ecs &ecs;
+  Socket socket;
+  std::shared_ptr<Ecs> ecs;
   float width;
 };
 
 int main() {
-  constexpr auto width = 800, height = 600;
+  constexpr auto width = 800;
+  constexpr auto height = 600;
 
-  Ecs ecs{};
+  SetTraceLogLevel(LOG_DEBUG);
 
-  const auto ball = ecs.create(Ball{Vector2{width / 2., height / 2.}}, Score{});
+  auto ecs = std::make_shared<Ecs>();
+
+  const auto ball =
+      ecs->create(Ball{Vector2{width / 2., height / 2.}}, Score{});
   const auto left =
-      ecs.create(Player{{.x = 10, .y = height / 2.}},
-                 PlayerController{.up = KEY_UP, .down = KEY_DOWN});
-  const auto right = ecs.create(Player{{
+      ecs->create(Player{{.x = 10, .y = height / 2.}},
+                  PlayerController{.up = KEY_UP, .down = KEY_DOWN});
+  const auto right = ecs->create(Player{{
       .x = width - 10 - Player::size.x,
       .y = height / 2.,
   }});
@@ -229,16 +240,11 @@ int main() {
   bool const is_server = std::tolower(answer) == 'y';
 
   if (is_server) {
-    ecs.add_components(ball, Physics{});
-    ecs.create(Server{left, right, ball});
+    ecs->add_components(ball, Physics{});
+    ecs->create(Server{.left = left, .right = right, .ball = ball});
   } else {
-    ecs.create(Client{left, right, ball});
+    ecs->create(Client{.left = left, .right = right, .ball = ball});
   }
-
-  InitWindow(width, height, "ECS Pong");
-  SetTargetFPS(24);
-
-  SetTraceLogLevel(LOG_DEBUG);
 
   ServerUpdate server_update{.ecs = ecs, .width = width};
   ClientUpdate client_update{.ecs = ecs, .width = width};
@@ -249,26 +255,31 @@ int main() {
     client_update.connect();
   }
 
+  BallUpdate ball_update{.width = width,
+                         .height = height,
+                         .ecs = ecs,
+                         .left = left,
+                         .right = right};
+
+  InitWindow(width, height, "ECS Pong");
+  SetTargetFPS(24);
+
   while (!WindowShouldClose()) {
     BeginDrawing();
     {
       ClearBackground(DARKGRAY);
 
-      ecs.run(BallRenderer{});
-      ecs.run(PlayerRenderer{});
-      ecs.run(ScoreRenderer{.width = width});
+      ecs->run(BallRenderer{});
+      ecs->run(PlayerRenderer{});
+      ecs->run(ScoreRenderer{.width = width});
     }
     EndDrawing();
 
-    ecs.run(PlayerUpdate{.height = height});
-    ecs.run(BallUpdate{.width = width,
-                       .height = height,
-                       .ecs = ecs,
-                       .left = left,
-                       .right = right});
-    ecs.run(server_update);
-    ecs.run(client_update);
-    ecs.run(ScoreUpdate{.ecs = ecs, .width = width});
+    ecs->run(PlayerUpdate{.height = height});
+    ecs->run(ball_update);
+    ecs->run(server_update);
+    ecs->run(client_update);
+    ecs->run(ScoreUpdate{.width = width});
   }
 
   CloseWindow();

@@ -19,14 +19,16 @@ int main() {
   auto my_receiver = manager->make_client();
   auto your_receiver = manager->make_client();
 
-  my_receiver->subscribe<MyEvent>(
-      [](MyEvent const &e) { std::println(std::cout, "MyEvent {}", e.i); });
-  your_receiver->subscribe<YourEvent>([](YourEvent const &e) {
-    std::println(std::cout, "YourEvent {} {}", e.i, e.s);
+  my_receiver->subscribe<MyEvent>([](MyEvent const &event) {
+    std::println(std::cout, "MyEvent {}", event.i);
+  });
+
+  your_receiver->subscribe<YourEvent>([](YourEvent const &event) {
+    std::println(std::cout, "YourEvent {} {}", event.i, event.s);
   });
 
   sender->emit(MyEvent{12});
-  sender->emit(YourEvent{14, "ayo"});
+  sender->emit(YourEvent{.i = 14, .s = "ayo"});
 
   manager->notify_clients();
 }
